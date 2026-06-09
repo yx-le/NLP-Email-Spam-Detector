@@ -1,19 +1,35 @@
-# 🎈 Blank app template
+# Email Spam Detector
 
-A simple Streamlit app template for you to modify!
+This Streamlit app loads one selected spam-classification model and predicts
+whether pasted email text is ham or spam.
 
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://blank-app-template.streamlit.app/)
+## Model files
 
-### How to run it on your own machine
+Copy these files from Google Colab into `models/`:
 
-1. Install the requirements
+- `tfidf_vectorizer.joblib`
+- `logistic_regression_model.joblib`
+- `naive_bayes_model.joblib`
+- `model_comparison.csv`
+- `bert_spam_model/` if BERT is deployed
 
-   ```
-   $ pip install -r requirements.txt
-   ```
+Select the deployed model in `app.py`:
 
-2. Run the app
+```python
+MODEL_TYPE = "logistic_regression"
+```
 
-   ```
-   $ streamlit run streamlit_app.py
-   ```
+Valid values are `logistic_regression`, `naive_bayes`, and `bert`.
+
+## Run locally
+
+```bash
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+## Important
+
+The preprocessing in `preprocessing.py` must remain identical to the
+preprocessing used before training the TF-IDF models. BERT receives raw,
+natural email text instead.
