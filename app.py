@@ -58,6 +58,18 @@ TRANSLATIONS = {
         "ham_chart": "Ham",
         "spam_chart": "Spam",
         "indicators": "Spam Indicator Words",
+        "explanation_title": "Why the model made this prediction",
+        "spam_support": "Increases spam score",
+        "ham_support": "Reduces spam score",
+        "explanation_note": (
+            "SHAP estimates how each token changes the spam prediction. "
+            "Positive values increase the spam score and negative values "
+            "reduce it. The final prediction uses all tokens together."
+        ),
+        "no_explanation": (
+            "No individual word had a strong measurable effect on this "
+            "prediction."
+        ),
         "bert_explanation": (
             "BERT does not provide reliable indicator words from simple "
             "coefficients. An explanation method such as SHAP can be added."
@@ -92,6 +104,18 @@ TRANSLATIONS = {
         "ham_chart": "Bukan Spam",
         "spam_chart": "Spam",
         "indicators": "Perkataan Petunjuk Spam",
+        "explanation_title": "Mengapa model membuat ramalan ini",
+        "spam_support": "Meningkatkan skor spam",
+        "ham_support": "Mengurangkan skor spam",
+        "explanation_note": (
+            "SHAP menganggarkan kesan setiap token terhadap ramalan spam. "
+            "Nilai positif meningkatkan skor spam dan nilai negatif "
+            "mengurangkannya. Ramalan akhir menggunakan semua token bersama."
+        ),
+        "no_explanation": (
+            "Tiada perkataan individu yang memberi kesan kuat terhadap "
+            "ramalan ini."
+        ),
         "bert_explanation": (
             "BERT tidak memberikan perkataan petunjuk yang boleh dipercayai "
             "melalui pekali mudah. Kaedah seperti SHAP boleh ditambah."
@@ -122,6 +146,14 @@ TRANSLATIONS = {
         "ham_chart": "正常邮件",
         "spam_chart": "垃圾邮件",
         "indicators": "垃圾邮件提示词",
+        "explanation_title": "模型为何作出此预测",
+        "spam_support": "支持垃圾邮件",
+        "ham_support": "支持正常邮件",
+        "explanation_note": (
+            "系统通过逐个移除词语并测量垃圾邮件与正常邮件分数的变化来估计词语影响。"
+            "这只能解释本次预测，并不表示该词语始终属于垃圾邮件。"
+        ),
+        "no_explanation": "没有单个词语对本次预测产生明显影响。",
         "bert_explanation": (
             "BERT 无法通过简单的模型系数提供可靠的提示词。"
             "后续可以添加 SHAP 等解释方法。"
@@ -241,6 +273,128 @@ def predict_bert(email_text, resources):
     return prediction, probabilities, email_text, []
 
 
+@st.cache_resource(show_spinner=False)
+def create_shap_explainer(_model, _tokenizer, _torch):
+    import shap
+
+    def predict_probabilities(texts):
+        text_list = [str(value) for value in list(texts)]
+        encoded = _tokenizer(
+            text_list,
+            return_tensors="pt",
+            truncation=True,
+            max_length=256,
+            padding=True,
+        )
+        encoded = {
+            key: value.to(_model.device)
+            for key, value in encoded.items()
+        }
+
+        with _torch.no_grad():
+            logits = _model(**encoded).logits
+            return _torch.softmax(logits, dim=1).cpu().numpy()
+
+    return shap.Explainer(
+        predict_probabilities,
+        _tokenizer,
+        output_names=["HAM", "SPAM"],
+        algorithm="partition",
+    )
+
+
+def explain_bert_words(email_text, resources, result_limit=15):
+    explanation_token_ids = resources["tokenizer"].encode(
+        email_text,
+        add_special_tokens=False,
+        truncation=True,
+        max_length=128,
+    )
+    explanation_text = resources["tokenizer"].decode(
+        explanation_token_ids,
+        skip_special_tokens=True,
+    )
+
+    explainer = create_shap_explainer(
+        resources["model"],
+        resources["tokenizer"],
+        resources["torch"],
+    )
+
+    explanation = explainer(
+        [explanation_text],
+        max_evals=300,
+        batch_size=8,
+    )[0]
+
+    values = np.asarray(explanation.values)
+    tokens = np.asarray(explanation.data)
+
+    if values.ndim == 2:
+        spam_values = values[:, 1]
+    else:
+        spam_values = values
+
+    aggregated = {}
+    display_names = {}
+
+    for token, value in zip(tokens, spam_values):
+        clean_token = str(token).replace("##", "").strip()
+        if (
+            not clean_token
+            or clean_token in {"[CLS]", "[SEP]", "[PAD]"}
+            or not re.search(r"[A-Za-z0-9]", clean_token)
+        ):
+            continue
+
+        normalized = clean_token.lower()
+        aggregated[normalized] = aggregated.get(normalized, 0.0) + float(value)
+        display_names.setdefault(normalized, clean_token)
+
+    impacts = [
+        {
+            "word": display_names[token],
+            "impact": impact,
+        }
+        for token, impact in aggregated.items()
+        if abs(impact) >= 0.000001
+    ]
+
+    return sorted(
+        impacts,
+        key=lambda item: abs(item["impact"]),
+        reverse=True,
+    )[:result_limit]
+
+
+def highlight_bert_impacts(text_value, impacts):
+    safe_text = html.escape(text_value)
+    impact_map = {
+        item["word"].lower(): item["impact"]
+        for item in impacts
+    }
+
+    if not impact_map:
+        return safe_text.replace("\n", "<br>")
+
+    words = sorted(impact_map, key=len, reverse=True)
+    pattern = re.compile(
+        r"\b(" + "|".join(re.escape(word) for word in words) + r")\b",
+        flags=re.IGNORECASE,
+    )
+
+    def replace_word(match):
+        word = match.group(0)
+        impact = impact_map[word.lower()]
+        color = "#ffb3b3" if impact > 0 else "#b8f2c2"
+        return (
+            f"<mark style='background-color:{color};"
+            f"padding:2px 3px;border-radius:3px'>{word}</mark>"
+        )
+
+    return pattern.sub(replace_word, safe_text).replace("\n", "<br>")
+
+
 def highlight_indicators(text, indicators):
     safe_text = html.escape(text)
     words = sorted(
@@ -319,16 +473,50 @@ if st.button(text["analyze"], type="primary", use_container_width=True):
         st.subheader(text["class_probabilities"])
         st.bar_chart(probability_df)
 
-        st.subheader(text["indicators"])
-        if indicators:
+        if MODEL_TYPE == "bert":
+            st.subheader(text["explanation_title"])
+            with st.spinner("Generating SHAP explanation..."):
+                impacts = explain_bert_words(
+                    email_text,
+                    resources,
+                )
+
+            if impacts:
+                st.markdown(
+                    highlight_bert_impacts(email_text, impacts),
+                    unsafe_allow_html=True,
+                )
+
+                explanation_df = pd.DataFrame(
+                    {
+                        "Word": [item["word"] for item in impacts],
+                        "Direction": [
+                            (
+                                text["spam_support"]
+                                if item["impact"] > 0
+                                else text["ham_support"]
+                            )
+                            for item in impacts
+                        ],
+                        "SHAP impact": [
+                            round(item["impact"], 5) for item in impacts
+                        ],
+                    }
+                )
+                st.dataframe(explanation_df, use_container_width=True)
+            else:
+                st.info(text["no_explanation"])
+
+            st.caption(text["explanation_note"])
+        elif indicators:
+            st.subheader(text["indicators"])
             st.write(", ".join(indicators))
             st.markdown(
                 highlight_indicators(email_text, indicators),
                 unsafe_allow_html=True,
             )
-        elif MODEL_TYPE == "bert":
-            st.info(text["bert_explanation"])
         else:
+            st.subheader(text["indicators"])
             st.write("No strong spam indicators were found in this email.")
 
         with st.expander(text["processed"]):
