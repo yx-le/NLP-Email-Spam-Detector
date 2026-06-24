@@ -1,0 +1,7 @@
+Model,Actual,Predicted Ham,Predicted Spam
+BERT,Ham,824,2
+BERT,Spam,2,271
+Logistic Regression,Ham,821,5
+Logistic Regression,Spam,0,273
+Multinomial Naive Bayes,Ham,826,0
+Multinomial Naive Bayes,Spam,15,258

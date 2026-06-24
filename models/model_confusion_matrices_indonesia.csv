@@ -1,0 +1,3 @@
+Model,Actual,Predicted Ham,Predicted Spam
+Indonesian BERT,Ham,245,5
+Indonesian BERT,Spam,3,271

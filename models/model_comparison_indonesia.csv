@@ -1,0 +1,2 @@
+Model,Accuracy,Precision,Recall,F1-Score
+Indonesian BERT,0.9847,0.9819,0.9891,0.9855
