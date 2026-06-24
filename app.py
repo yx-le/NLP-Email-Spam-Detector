@@ -213,6 +213,10 @@ TRANSLATIONS = {
             "No individual word had a strong measurable effect on this "
             "prediction."
         ),
+        "explanation_error": (
+            "The prediction completed, but the word influence explanation "
+            "could not be generated in this environment."
+        ),
         "word_phrase": "Word or phrase",
         "influence": "Influence",
         "impact_score": "Impact score",
@@ -274,6 +278,10 @@ TRANSLATIONS = {
         "no_explanation": (
             "Tiada perkataan individu yang memberi kesan kuat terhadap "
             "ramalan ini."
+        ),
+        "explanation_error": (
+            "Prediksi selesai, tetapi penjelasan pengaruh kata tidak dapat "
+            "dibuat dalam environment ini."
         ),
         "word_phrase": "Perkataan atau frasa",
         "influence": "Pengaruh",
@@ -351,11 +359,15 @@ def load_model_resources(model_type, model_path, vectorizer_path):
         }
 
     if model_type == "bert":
-        import torch
-        from transformers import (
-            AutoModelForSequenceClassification,
-            AutoTokenizer,
-        )
+        try:
+            import torch
+            from transformers import AutoTokenizer, BertForSequenceClassification
+        except Exception as error:
+            raise RuntimeError(
+                "BERT dependencies are not installed correctly. Reinstall the "
+                "app requirements inside .venv, especially torch, torchvision, "
+                "transformers, tokenizers, and safetensors."
+            ) from error
 
         patch_torch_classes_path(torch)
 
@@ -365,7 +377,7 @@ def load_model_resources(model_type, model_path, vectorizer_path):
             )
 
         tokenizer = AutoTokenizer.from_pretrained(model_path)
-        model = AutoModelForSequenceClassification.from_pretrained(model_path)
+        model = BertForSequenceClassification.from_pretrained(model_path)
         model.eval()
 
         return {
@@ -838,19 +850,26 @@ def render_text_analyzer(
                             email_text,
                             resources,
                         )
-                        with st.spinner(text["explaining"]):
-                            impacts = explain_bert_words(email_text, resources)
+                        explanation_error = None
+                        try:
+                            with st.spinner(text["explaining"]):
+                                impacts = explain_bert_words(email_text, resources)
+                        except Exception as error:
+                            impacts = []
+                            explanation_error = str(error)
                     else:
                         prediction, probabilities, processed_text, impacts = predict_classic(
                             email_text,
                             resources,
                             language,
                         )
+                        explanation_error = None
                 st.session_state[result_key] = {
                     "prediction": prediction,
                     "probabilities": [float(value) for value in probabilities],
                     "processed_text": processed_text,
                     "impacts": impacts,
+                    "explanation_error": explanation_error,
                     "source_text": email_text,
                 }
             except Exception as error:
@@ -867,6 +886,7 @@ def render_text_analyzer(
     prediction = result["prediction"]
     probabilities = result["probabilities"]
     impacts = result["impacts"]
+    explanation_error = result.get("explanation_error")
     confidence = float(probabilities[prediction])
     label = text["spam"] if prediction == 1 else text["ham"]
     st.divider()
@@ -920,6 +940,8 @@ def render_text_analyzer(
         )
         st.dataframe(explanation_df, use_container_width=True, hide_index=True)
     else:
+        if explanation_error:
+            st.warning(f'{text["explanation_error"]} ({explanation_error})')
         st.info(text["no_explanation"])
 
     st.caption(
