@@ -131,44 +131,31 @@ Bahasa Indonesia uses the Group 5 `bert_indonesia_spam_model/` checkpoint.
 Current finalized folder layout:
 
 ```text
-nlp project/
+NLP-Email-Spam-Detector/
 |-- dataset/
 |   |-- emails.csv
 |   |-- final_preprocessed_emails_dataset.csv
 |   |-- email_spam_indo.csv
 |   `-- final_preprocessed_indonesia_spam_dataset.csv
-|-- Model Trained/
-|-- spam_email_detector/
-|   |-- app.py
-|   |-- preprocessing.py
-|   |-- requirements.txt
-|   |-- README.md
-|   `-- models/
-|       |-- model_comparison.csv
-|       |-- model_comparison_indonesia.csv
-|       |-- model_confusion_matrices.csv
-|       |-- model_confusion_matrices_indonesia.csv
-|       |-- bert_spam_model/
-|       `-- bert_indonesia_spam_model/
-`-- nltk_data/
+|-- app.py
+|-- preprocessing.py
+|-- requirements.txt
+|-- README.md
+|- models/
+|   |-- model_comparison.csv
+|   |-- model_comparison_indonesia.csv
+|   |-- model_confusion_matrices.csv
+|   |-- model_confusion_matrices_indonesia.csv
+|   |-- bert_spam_model/
+|   `-- bert_indonesia_spam_model/
 ```
 
-For Streamlit Cloud deployments where `app.py`, `dataset/`, and `models/` are
-all at the repository root, set the app paths as:
+Set the app paths as:
 
 ```python
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_DIR = BASE_DIR / "models"
 DATA_DIR = BASE_DIR / "dataset"
-```
-
-For this local folder, where `app.py` is inside `spam_email_detector/`, the app
-uses:
-
-```python
-BASE_DIR = Path(__file__).resolve().parent
-MODEL_DIR = BASE_DIR / "models"
-DATA_DIR = BASE_DIR.parent / "dataset"
 ```
 
 ## Local installation
@@ -193,10 +180,10 @@ Stop the app by pressing `Ctrl+C` in the terminal.
 
 ## Training notebooks
 
-The Group 5 training notebooks are stored in `Model Trained/`. For the
-Indonesian model, run `Model Trained/Indonesia_BERT_Training.ipynb` in Google
+The Group 5 training notebooks are stored in `notebooks/`. For the
+Indonesian model, run `notebooks/Indonesia_BERT_Training.ipynb` in Google
 Colab and place the exported `bert_indonesia_spam_model/` folder into
-`spam_email_detector/models/`.
+`models/`.
 
 BERT receives raw natural email text. TF-IDF models use preprocessing from
 `preprocessing.py`, so that file must remain consistent with the preprocessing
