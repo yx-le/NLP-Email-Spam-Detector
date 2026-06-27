@@ -738,11 +738,33 @@ def scroll_to_top_on_page_change(page):
     components.html(
         """
         <script>
-        const scrollRoot = window.parent.document.querySelector('.stApp');
-        if (scrollRoot) {
-            scrollRoot.scrollTo({top: 0, left: 0, behavior: 'auto'});
+        function scrollEverywhere() {
+            const doc = window.parent.document;
+            const targets = [
+                window.parent,
+                doc.documentElement,
+                doc.body,
+                doc.querySelector('[data-testid="stAppViewContainer"]'),
+                doc.querySelector('[data-testid="stAppViewContainer"] > section'),
+                doc.querySelector('section.main'),
+                doc.querySelector('.stApp')
+            ].filter(Boolean);
+
+            targets.forEach((target) => {
+                try {
+                    if (target.scrollTo) {
+                        target.scrollTo(0, 0);
+                        target.scrollTo({top: 0, left: 0, behavior: 'auto'});
+                    }
+                    target.scrollTop = 0;
+                    target.scrollLeft = 0;
+                } catch (error) {}
+            });
         }
-        window.parent.scrollTo({top: 0, left: 0, behavior: 'auto'});
+
+        [0, 50, 150, 300, 600, 1000].forEach((delay) => {
+            window.setTimeout(scrollEverywhere, delay);
+        });
         </script>
         """,
         height=0,
