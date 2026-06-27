@@ -18,7 +18,7 @@ from preprocessing import preprocess_indonesia_text, preprocess_text
 
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_DIR = BASE_DIR / "models"
-DATA_DIR = BASE_DIR / "dataset"
+DATA_DIR = BASE_DIR.parent / "dataset"
 
 # Change this after comparing your models:
 # "logistic_regression", "naive_bayes", or "bert"
@@ -709,6 +709,27 @@ def page_heading(kicker, title, description):
     st.markdown(f'<div class="app-summary">{description}</div>', unsafe_allow_html=True)
 
 
+def fixed_choice(label, options, key, default=None):
+    if default is None:
+        default = options[0]
+    if st.session_state.get(key) not in options:
+        st.session_state[key] = default
+
+    st.markdown(label)
+    with st.popover(
+        st.session_state[key],
+        icon=":material/arrow_drop_down:",
+        use_container_width=True,
+    ):
+        st.radio(
+            label,
+            options,
+            key=key,
+            label_visibility="collapsed",
+        )
+    return st.session_state[key]
+
+
 def render_home(language, active_model_type):
     page_heading(
         "NLP Group 5 Project",
@@ -804,7 +825,7 @@ def render_text_analyzer(
 
     preset_col, load_col, clear_col = st.columns([2.3, 1, 1])
     with preset_col:
-        preset_name = st.selectbox(
+        preset_name = fixed_choice(
             text["try_example"],
             list(examples[language]),
             key=f"preset_{language}",
@@ -975,10 +996,12 @@ def render_data_explorer(language):
 
     st.subheader("Browse records")
     filter_col, search_col, size_col = st.columns([1, 2, 1])
-    label_filter = filter_col.selectbox(
-        "Label",
-        ["All", "Legitimate", "Spam / Phishing"],
-    )
+    with filter_col:
+        label_filter = fixed_choice(
+            "Label",
+            ["All", "Legitimate", "Spam / Phishing"],
+            key=f"data_label_filter_{language}",
+        )
     search_term = search_col.text_input(
         "Search email text",
         placeholder="Enter a word or phrase...",
@@ -1018,8 +1041,10 @@ def render_data_explorer(language):
     with pie_col:
         st.subheader("Class share")
         pie_data = distribution.rename_axis("Label").reset_index(name="Emails")
+        pie_data["Percent"] = pie_data["Emails"] / pie_data["Emails"].sum()
+        pie_base = alt.Chart(pie_data)
         pie_chart = (
-            alt.Chart(pie_data)
+            pie_base
             .mark_arc(innerRadius=58, outerRadius=105, strokeWidth=2)
             .encode(
                 theta=alt.Theta("Emails:Q"),
@@ -1031,14 +1056,73 @@ def render_data_explorer(language):
                     ),
                     legend=alt.Legend(title=None, orient="bottom"),
                 ),
-                tooltip=["Label:N", "Emails:Q"],
+                tooltip=[
+                    alt.Tooltip("Label:N"),
+                    alt.Tooltip("Emails:Q", format=","),
+                    alt.Tooltip("Percent:Q", format=".1%"),
+                ],
             )
             .properties(height=300)
         )
-        st.altair_chart(pie_chart, use_container_width=True, theme="streamlit")
+        pie_labels = (
+            pie_base
+            .mark_text(radius=82, fontSize=14, fontWeight="bold", color="white")
+            .encode(
+                theta=alt.Theta("Emails:Q"),
+                text=alt.Text("Percent:Q", format=".1%"),
+            )
+        )
+        st.altair_chart(
+            pie_chart + pie_labels,
+            use_container_width=True,
+            theme="streamlit",
+        )
     with bar_col:
         st.subheader("Label totals")
-        st.bar_chart(distribution.rename("Emails"), color="#e76f51")
+        total_data = distribution.rename_axis("Label").reset_index(name="Emails")
+        total_axis_max = max(int(total_data["Emails"].max() * 1.14), 1)
+        total_base = alt.Chart(total_data)
+        total_bars = (
+            total_base
+            .mark_bar(cornerRadiusEnd=4)
+            .encode(
+                x=alt.X(
+                    "Emails:Q",
+                    title="Emails",
+                    scale=alt.Scale(domain=[0, total_axis_max]),
+                ),
+                y=alt.Y("Label:N", sort=None, title=None),
+                color=alt.Color(
+                    "Label:N",
+                    scale=alt.Scale(
+                        domain=["Legitimate", "Spam / Phishing"],
+                        range=["#159587", "#e76f51"],
+                    ),
+                    legend=None,
+                ),
+                tooltip=[
+                    alt.Tooltip("Label:N"),
+                    alt.Tooltip("Emails:Q", format=","),
+                ],
+            )
+        )
+        total_labels = (
+            total_base
+            .mark_text(align="left", baseline="middle", dx=6, fontWeight="bold")
+            .encode(
+                x=alt.X(
+                    "Emails:Q",
+                    scale=alt.Scale(domain=[0, total_axis_max]),
+                ),
+                y=alt.Y("Label:N", sort=None),
+                text=alt.Text("Emails:Q", format=","),
+            )
+        )
+        st.altair_chart(
+            (total_bars + total_labels).properties(height=300),
+            use_container_width=True,
+            theme="streamlit",
+        )
 
     st.subheader("Dataset statistics")
     statistics = pd.DataFrame(
@@ -1084,10 +1168,12 @@ def render_visualizations(language):
     with word_section:
         st.subheader("Word patterns")
         control_col, count_col = st.columns([1.3, 1])
-        cloud_label = control_col.selectbox(
-            "Words from",
-            ["All emails", "Legitimate", "Spam / Phishing"],
-        )
+        with control_col:
+            cloud_label = fixed_choice(
+                "Words from",
+                ["All emails", "Legitimate", "Spam / Phishing"],
+                key=f"word_cloud_filter_{language}",
+            )
         max_words = count_col.slider("Number of words", 40, 180, 100, 20)
         cloud_dataset = dataset
         if cloud_label != "All emails":
