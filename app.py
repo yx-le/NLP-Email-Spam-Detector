@@ -12,6 +12,7 @@ import altair as alt
 import numpy as np
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 from preprocessing import preprocess_indonesia_text, preprocess_text
 
@@ -729,6 +730,26 @@ def fixed_choice(label, options, key, default=None):
     return st.session_state[key]
 
 
+def scroll_to_top_on_page_change(page):
+    if st.session_state.get("last_page") == page:
+        return
+
+    st.session_state["last_page"] = page
+    components.html(
+        """
+        <script>
+        const scrollRoot = window.parent.document.querySelector('.stApp');
+        if (scrollRoot) {
+            scrollRoot.scrollTo({top: 0, left: 0, behavior: 'auto'});
+        }
+        window.parent.scrollTo({top: 0, left: 0, behavior: 'auto'});
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
+
+
 def render_home(language, active_model_type):
     page_heading(
         "NLP Group 5 Project",
@@ -1418,6 +1439,7 @@ def render_model_info(language, active_model_type):
 st.sidebar.markdown("## Email Spam Detector")
 st.sidebar.caption("English and Bahasa Indonesia")
 page = st.sidebar.radio("Navigate", PAGES)
+scroll_to_top_on_page_change(page)
 st.sidebar.divider()
 language_options = ["English", "Bahasa Indonesia"]
 if st.session_state.get("model_language") not in language_options:
