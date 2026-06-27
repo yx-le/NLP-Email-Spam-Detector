@@ -12,7 +12,6 @@ import altair as alt
 import numpy as np
 import pandas as pd
 import streamlit as st
-import streamlit.components.v1 as components
 
 from preprocessing import preprocess_indonesia_text, preprocess_text
 
@@ -730,46 +729,8 @@ def fixed_choice(label, options, key, default=None):
     return st.session_state[key]
 
 
-def scroll_to_top_on_page_change(page):
-    if st.session_state.get("last_page") == page:
-        return
-
-    st.session_state["last_page"] = page
-    components.html(
-        """
-        <script>
-        function scrollEverywhere() {
-            const doc = window.parent.document;
-            const targets = [
-                window.parent,
-                doc.documentElement,
-                doc.body,
-                doc.querySelector('[data-testid="stAppViewContainer"]'),
-                doc.querySelector('[data-testid="stAppViewContainer"] > section'),
-                doc.querySelector('section.main'),
-                doc.querySelector('.stApp')
-            ].filter(Boolean);
-
-            targets.forEach((target) => {
-                try {
-                    if (target.scrollTo) {
-                        target.scrollTo(0, 0);
-                        target.scrollTo({top: 0, left: 0, behavior: 'auto'});
-                    }
-                    target.scrollTop = 0;
-                    target.scrollLeft = 0;
-                } catch (error) {}
-            });
-        }
-
-        [0, 50, 150, 300, 600, 1000].forEach((delay) => {
-            window.setTimeout(scrollEverywhere, delay);
-        });
-        </script>
-        """,
-        height=0,
-        width=0,
-    )
+def request_page_reload():
+    st.session_state["page_reload_requested"] = True
 
 
 def render_home(language, active_model_type):
@@ -1460,8 +1421,16 @@ def render_model_info(language, active_model_type):
 
 st.sidebar.markdown("## Email Spam Detector")
 st.sidebar.caption("English and Bahasa Indonesia")
-page = st.sidebar.radio("Navigate", PAGES)
-scroll_to_top_on_page_change(page)
+if st.session_state.get("active_page") not in PAGES:
+    st.session_state["active_page"] = PAGES[0]
+page = st.sidebar.radio(
+    "Navigate",
+    PAGES,
+    key="active_page",
+    on_change=request_page_reload,
+)
+if st.session_state.pop("page_reload_requested", False):
+    st.rerun()
 st.sidebar.divider()
 language_options = ["English", "Bahasa Indonesia"]
 if st.session_state.get("model_language") not in language_options:
