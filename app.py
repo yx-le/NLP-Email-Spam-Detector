@@ -1108,13 +1108,11 @@ def render_data_explorer(language):
         total_labels = (
             total_base
             .mark_text(
-                align="left",
+                align="right",
                 baseline="middle",
-                dx=8,
+                dx=-8,
                 fontWeight="bold",
                 color="#ffffff",
-                stroke="#111827",
-                strokeWidth=3,
             )
             .encode(
                 x=alt.X(
