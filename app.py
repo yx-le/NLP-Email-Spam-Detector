@@ -1069,7 +1069,12 @@ def render_data_explorer(language):
         )
         pie_labels = (
             pie_base
-            .mark_text(radius=82, fontSize=14, fontWeight="bold", color="white")
+            .mark_text(
+                radius=132,
+                fontSize=13,
+                fontWeight="bold",
+                color="#ffffff",
+            )
             .encode(
                 theta=alt.Theta("Emails:Q"),
                 text=alt.Text("Percent:Q", format=".1%"),
