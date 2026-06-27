@@ -718,7 +718,6 @@ def fixed_choice(label, options, key, default=None):
     st.markdown(label)
     with st.popover(
         st.session_state[key],
-        icon=":material/arrow_drop_down:",
         use_container_width=True,
     ):
         st.radio(
@@ -1108,7 +1107,15 @@ def render_data_explorer(language):
         )
         total_labels = (
             total_base
-            .mark_text(align="left", baseline="middle", dx=6, fontWeight="bold")
+            .mark_text(
+                align="left",
+                baseline="middle",
+                dx=8,
+                fontWeight="bold",
+                color="#ffffff",
+                stroke="#111827",
+                strokeWidth=3,
+            )
             .encode(
                 x=alt.X(
                     "Emails:Q",
