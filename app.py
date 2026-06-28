@@ -18,7 +18,7 @@ from preprocessing import preprocess_indonesia_text, preprocess_text
 
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_DIR = BASE_DIR / "models"
-DATA_DIR = BASE_DIR.parent / "dataset"
+DATA_DIR = BASE_DIR / "dataset"
 
 # Change this after comparing your models:
 # "logistic_regression", "naive_bayes", or "bert"
