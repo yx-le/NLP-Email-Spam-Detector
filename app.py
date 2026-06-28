@@ -536,21 +536,62 @@ def explain_bert_words(email_text, resources, result_limit=15):
     else:
         spam_values = values
 
-    aggregated = {}
-    display_names = {}
+    words = []
+    current_word = None
+    current_impact = 0.0
+
+    def finish_current_word():
+        nonlocal current_word, current_impact
+        if current_word:
+            words.append(
+                {
+                    "word": current_word,
+                    "impact": current_impact,
+                }
+            )
+        current_word = None
+        current_impact = 0.0
 
     for token, value in zip(tokens, spam_values):
-        clean_token = str(token).replace("##", "").strip()
-        if (
-            not clean_token
-            or clean_token in {"[CLS]", "[SEP]", "[PAD]"}
-            or not re.search(r"[A-Za-z0-9]", clean_token)
-        ):
+        raw_token = str(token).strip()
+        if not raw_token or raw_token in {"[CLS]", "[SEP]", "[PAD]"}:
+            finish_current_word()
             continue
 
-        normalized = clean_token.lower()
-        aggregated[normalized] = aggregated.get(normalized, 0.0) + float(value)
-        display_names.setdefault(normalized, clean_token)
+        is_continuation = raw_token.startswith("##")
+        clean_token = raw_token[2:] if is_continuation else raw_token
+        clean_token = re.sub(r"^[^\w]+|[^\w]+$", "", clean_token, flags=re.UNICODE)
+        clean_token = clean_token.replace("_", "").strip()
+
+        if not clean_token or not re.search(r"[^\W_]", clean_token, flags=re.UNICODE):
+            finish_current_word()
+            continue
+
+        if is_continuation and current_word:
+            current_word += clean_token
+            current_impact += float(value)
+        else:
+            finish_current_word()
+            current_word = clean_token
+            current_impact = float(value)
+
+    finish_current_word()
+
+    aggregated = {}
+    display_names = {}
+    source_text = email_text.lower()
+
+    for item in words:
+        word = item["word"].strip()
+        normalized = word.lower()
+
+        if len(normalized) < 3 or normalized.isdigit():
+            continue
+        if not re.search(rf"\b{re.escape(normalized)}\b", source_text, flags=re.IGNORECASE):
+            continue
+
+        aggregated[normalized] = aggregated.get(normalized, 0.0) + item["impact"]
+        display_names.setdefault(normalized, word)
 
     impacts = [
         {
