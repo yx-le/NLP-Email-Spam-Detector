@@ -746,6 +746,7 @@ def scroll_page_to_top():
             const topAnchor = doc.getElementById("page-top-anchor");
             if (topAnchor && topAnchor.scrollIntoView) {
                 topAnchor.scrollIntoView({block: "start", inline: "nearest"});
+                return;
             }
 
             const targets = [
@@ -1502,7 +1503,10 @@ with st.sidebar.popover(
 active_model_type, active_model_path, active_vectorizer_path = get_language_model_config(language)
 st.sidebar.caption(f"Active model: {format_model_name(active_model_type)}")
 
-st.markdown('<div id="page-top-anchor"></div>', unsafe_allow_html=True)
+st.markdown(
+    '<div id="page-top-anchor" style="height:1px; scroll-margin-top:6rem;"></div>',
+    unsafe_allow_html=True,
+)
 
 if page == "Home / About":
     render_home(language, active_model_type)
