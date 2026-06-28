@@ -12,6 +12,7 @@ import altair as alt
 import numpy as np
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 from preprocessing import preprocess_indonesia_text, preprocess_text
 
@@ -729,8 +730,51 @@ def fixed_choice(label, options, key, default=None):
     return st.session_state[key]
 
 
-def request_page_reload():
-    st.session_state["page_reload_requested"] = True
+def request_page_scroll_top():
+    st.session_state["scroll_top_requested"] = True
+
+
+def scroll_page_to_top():
+    if not st.session_state.pop("scroll_top_requested", False):
+        return
+
+    components.html(
+        """
+        <script>
+        function scrollToTop() {
+            const doc = window.parent.document;
+            const targets = [
+                doc.querySelector(".main"),
+                doc.querySelector("section.main"),
+                doc.querySelector("[data-testid='stAppViewContainer']"),
+                doc.querySelector("[data-testid='stAppViewContainer'] > section"),
+                doc.documentElement,
+                doc.body
+            ].filter(Boolean);
+
+            targets.forEach((body) => {
+                try {
+                    body.scrollTop = 0;
+                    body.scrollLeft = 0;
+                    if (body.scrollTo) {
+                        body.scrollTo(0, 0);
+                    }
+                } catch (error) {}
+            });
+
+            try {
+                window.parent.scrollTo(0, 0);
+            } catch (error) {}
+        }
+
+        [0, 50, 150, 300, 700].forEach((delay) => {
+            window.setTimeout(scrollToTop, delay);
+        });
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
 
 
 def render_home(language, active_model_type):
@@ -1432,10 +1476,9 @@ page = st.sidebar.radio(
     "Navigate",
     PAGES,
     key="active_page",
-    on_change=request_page_reload,
+    on_change=request_page_scroll_top,
 )
-if st.session_state.pop("page_reload_requested", False):
-    st.rerun()
+scroll_page_to_top()
 st.sidebar.divider()
 language_options = ["English", "Bahasa Indonesia"]
 if st.session_state.get("model_language") not in language_options:
